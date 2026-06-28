@@ -3,13 +3,9 @@ import type { Agent, AgentAction, AgentSession } from "@prisma/client";
 export type ToolResult = {
   name: string;
   input: Record<string, unknown>;
-  output: Record<string, unknown>;
+  output: unknown;
   status: "success" | "failed" | "skipped";
   latencyMs: number;
-};
-
-export type AgentToolsConfig = {
-  allowedTools: string[];
 };
 
 export type FrontendConfig = {

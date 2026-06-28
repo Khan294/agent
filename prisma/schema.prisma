@@ -30,18 +30,37 @@ model Agent {
   modelName      String         @default("gemma4:e2b-it-qat") @map("model_name")
   temperature    Decimal        @default(0.2) @db.Decimal(3, 2)
   maxTokens      Int?           @map("max_tokens")
-  toolsConfig    Json           @map("tools_config")
   frontendConfig Json           @map("frontend_config")
   metadata       Json?
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
-  documents      RagDocument[]
+  docs           AgentDoc[]
+  tools          AgentTool[]
   sessions       AgentSession[]
 
   @@map("agents")
 }
 
-model RagDocument {
+model AgentTool {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agentKey     String   @map("agent_key")
+  toolKey      String   @map("tool_key")
+  displayName  String   @map("display_name")
+  description  String
+  inputSchema  Json     @map("input_schema")
+  mockResponse Json     @map("mock_response")
+  enabled      Boolean  @default(true)
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  agent        Agent    @relation(fields: [agentKey], references: [agentKey], onDelete: Cascade)
+
+  @@unique([agentKey, toolKey])
+  @@index([agentKey, enabled])
+  @@map("agent_tools")
+}
+
+model AgentDoc {
   id        String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agentKey  String                @map("agent_key")
   category  String
@@ -55,7 +74,7 @@ model RagDocument {
 
   @@index([agentKey])
   @@index([category])
-  @@map("rag_documents")
+  @@map("agent_docs")
 }
 
 model AgentSession {

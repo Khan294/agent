@@ -70,8 +70,16 @@ The platform uses five tables:
 
 - `visitors`
 - `agents`
-- `rag_documents`
+- `agent_tools`
+- `agent_docs`
 - `agent_sessions`
 - `agent_actions`
 
 `agent_actions` stores messages, RAG lookups, tool calls, tool results, errors, and timestamps as an append-only event log.
+`agent_tools` stores each agent's tool schema and mock JSON response.
+
+For a clean local demo reset:
+
+```bash
+npm run db:reset
+```

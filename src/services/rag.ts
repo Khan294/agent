@@ -12,7 +12,7 @@ export async function retrieveRagContext(agentKey: string, provider: string, que
     const rows = await prisma.$queryRawUnsafe<RagHit[]>(
       `
       SELECT id::text, title, category, content, 1 - (embedding <=> $1::vector) AS score
-      FROM rag_documents
+      FROM agent_docs
       WHERE agent_key = $2 AND embedding IS NOT NULL
       ORDER BY embedding <=> $1::vector
       LIMIT $3
@@ -33,7 +33,7 @@ export async function retrieveRagContext(agentKey: string, provider: string, que
     .filter((term) => term.length > 3)
     .slice(0, 8);
 
-  const docs = await prisma.ragDocument.findMany({
+  const docs = await prisma.agentDoc.findMany({
     where: { agentKey },
     take: 30,
     orderBy: { createdAt: "asc" }

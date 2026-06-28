@@ -1,8 +1,6 @@
-import type { Agent } from "@prisma/client";
 import { generateText, isStepCount } from "ai";
 import type { Request, Response } from "express";
 import { prisma } from "../db/prisma.js";
-import type { AgentToolsConfig } from "../types.js";
 import { getRecentActions, recordAction } from "./actions.js";
 import { resolveLanguageModel } from "./modelProvider.js";
 import { buildMessages } from "./prompt.js";
@@ -47,8 +45,11 @@ export async function runChatTurn(req: Request, res: Response, agentKey: string,
     output: { documents: ragHits.map(({ id, title, category, score }) => ({ id, title, category, score })) }
   });
 
-  const toolsConfig = parseToolsConfig(agent);
-  const tools = createAgentTools(toolsConfig.allowedTools, {
+  const agentTools = await prisma.agentTool.findMany({
+    where: { agentKey, enabled: true },
+    orderBy: { toolKey: "asc" }
+  });
+  const tools = createAgentTools(agentTools, {
     sessionId: session.id,
     agentKey,
     recordAction
@@ -109,9 +110,4 @@ export async function runChatTurn(req: Request, res: Response, agentKey: string,
       }))
     }
   };
-}
-
-function parseToolsConfig(agent: Agent): AgentToolsConfig {
-  const raw = agent.toolsConfig as Partial<AgentToolsConfig>;
-  return { allowedTools: Array.isArray(raw.allowedTools) ? raw.allowedTools : [] };
 }

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { runChatTurn } from "../services/chatOrchestrator.js";
+import { runChatTurn } from "../services/agent-chat.service.js";
 
 export const chatRouter = Router();
 

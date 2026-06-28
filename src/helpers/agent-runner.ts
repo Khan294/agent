@@ -1,8 +1,46 @@
 import type { AgentAction } from "@prisma/client";
+import { generateText, isStepCount, type LanguageModel, type ToolSet } from "ai";
 import type { RagHit } from "../types.js";
 import { formatRagContext } from "./rag.js";
 
-type PromptInput = {
+type AgentRunnerInput = {
+  model: LanguageModel;
+  platformRules: string;
+  systemPrompt: string;
+  summary: string;
+  recentActions: AgentAction[];
+  ragHits: RagHit[];
+  currentMessage: string;
+  tools: ToolSet;
+  temperature: number;
+  maxOutputTokens: number;
+};
+
+export async function runAgentLoop(input: AgentRunnerInput) {
+  const promptMessages = buildMessages({
+    platformRules: input.platformRules,
+    systemPrompt: input.systemPrompt,
+    summary: input.summary,
+    recentActions: input.recentActions,
+    ragHits: input.ragHits,
+    currentMessage: input.currentMessage,
+    toolNames: Object.keys(input.tools)
+  });
+  const instructions = promptMessages.find((promptMessage) => promptMessage.role === "system")?.content;
+  const messages = promptMessages.filter((promptMessage) => promptMessage.role !== "system");
+
+  return generateText({
+    model: input.model,
+    instructions,
+    messages,
+    tools: input.tools,
+    stopWhen: isStepCount(4),
+    temperature: input.temperature,
+    maxOutputTokens: input.maxOutputTokens
+  });
+}
+
+type BuildMessagesInput = {
   platformRules: string;
   systemPrompt: string;
   summary: string;
@@ -12,7 +50,7 @@ type PromptInput = {
   toolNames: string[];
 };
 
-export function buildMessages(input: PromptInput) {
+function buildMessages(input: BuildMessagesInput) {
   const recentHistory = input.recentActions
     .filter((action) => ["user_message", "assistant_message", "tool_result"].includes(action.eventType))
     .slice(-12)

@@ -1,7 +1,7 @@
 import cookieParser from "cookie-parser";
 import express from "express";
-import { env } from "./config/env.js";
-import { prisma } from "./db/prisma.js";
+import { env } from "./helpers/env.js";
+import { prisma } from "./helpers/prisma.js";
 import { agentsRouter } from "./routes/agents.js";
 import { chatRouter } from "./routes/chat.js";
 

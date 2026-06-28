@@ -1,4 +1,4 @@
-import { prisma } from "../db/prisma.js";
+import { prisma } from "../helpers/prisma.js";
 
 type RecordActionInput = {
   sessionId: string;

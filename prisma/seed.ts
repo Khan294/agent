@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { Prisma, PrismaClient } from "@prisma/client";
-import { embedText, toVectorLiteral } from "../src/services/embeddings.js";
+import { embedText, toVectorLiteral } from "../src/helpers/rag.js";
 
 const prisma = new PrismaClient();
 

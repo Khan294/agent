@@ -1,13 +1,13 @@
-import { generateText, isStepCount } from "ai";
+import { prisma } from "../helpers/prisma.js";
 import type { Request, Response } from "express";
-import { prisma } from "../db/prisma.js";
-import { getRecentActions, recordAction } from "./actions.js";
-import { resolveLanguageModel } from "./modelProvider.js";
-import { buildMessages } from "./prompt.js";
-import { retrieveRagContext } from "./rag.js";
-import { resolveSession, updateSessionMemory } from "./sessions.js";
-import { createAgentTools } from "./tools.js";
-import { resolveVisitor } from "./visitors.js";
+import { runAgentLoop } from "../helpers/agent-runner.js";
+import { resolveLanguageModel } from "../helpers/model-provider.js";
+import { embedText, rankDocsLexically, toVectorLiteral } from "../helpers/rag.js";
+import { getRecentActions, recordAction } from "./agent-action.service.js";
+import { findAgentDocsForLexicalSearch, findNearestAgentDocs } from "./agent-doc.service.js";
+import { resolveSession, updateSessionMemory } from "./agent-session.service.js";
+import { createAgentTools } from "./agent-tool.service.js";
+import { resolveVisitor } from "./visitor.service.js";
 
 const platformRules = [
   "You are running inside a public client demo platform.",
@@ -15,6 +15,8 @@ const platformRules = [
   "Only use tools listed in the available tools section.",
   "Use retrieved RAG documents as business rules. If RAG context is missing, ask a clarifying question instead of inventing policy."
 ].join("\n");
+
+const ragTopK = 4;
 
 export async function runChatTurn(req: Request, res: Response, agentKey: string, message: string) {
   const visitor = await resolveVisitor(req, res);
@@ -35,7 +37,10 @@ export async function runChatTurn(req: Request, res: Response, agentKey: string,
 
   const recentActions = await getRecentActions(session.id);
   const ragQuery = [session.summary, message].filter(Boolean).join("\n");
-  const ragHits = await retrieveRagContext(agentKey, agent.modelProvider, ragQuery);
+  const embedding = await embedText(agent.modelProvider, ragQuery).catch(() => null);
+  const vectorHits = embedding?.length ? await findNearestAgentDocs(agentKey, toVectorLiteral(embedding), ragTopK) : [];
+  const lexicalDocs = vectorHits.length ? [] : await findAgentDocsForLexicalSearch(agentKey);
+  const ragHits = vectorHits.length ? vectorHits : rankDocsLexically(lexicalDocs, ragQuery, ragTopK);
 
   await recordAction({
     sessionId: session.id,
@@ -55,24 +60,15 @@ export async function runChatTurn(req: Request, res: Response, agentKey: string,
     recordAction
   });
 
-  const promptMessages = buildMessages({
-      platformRules,
-      systemPrompt: agent.systemPrompt,
-      summary: session.summary ?? "",
-      recentActions,
-      ragHits,
-      currentMessage: message,
-      toolNames: Object.keys(tools)
-    });
-  const instructions = promptMessages.find((promptMessage) => promptMessage.role === "system")?.content;
-  const messages = promptMessages.filter((promptMessage) => promptMessage.role !== "system");
-
-  const result = await generateText({
+  const result = await runAgentLoop({
     model: resolveLanguageModel(agent.modelProvider, agent.modelName),
-    instructions,
-    messages,
+    platformRules,
+    systemPrompt: agent.systemPrompt,
+    summary: session.summary ?? "",
+    recentActions,
+    ragHits,
+    currentMessage: message,
     tools,
-    stopWhen: isStepCount(4),
     temperature: Number(agent.temperature),
     maxOutputTokens: agent.maxTokens ?? 800
   });

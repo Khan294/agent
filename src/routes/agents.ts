@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { prisma } from "../db/prisma.js";
+import { prisma } from "../helpers/prisma.js";
 import type { FrontendConfig } from "../types.js";
-import { resolveVisitor } from "../services/visitors.js";
+import { resolveVisitor } from "../services/visitor.service.js";
 
 export const agentsRouter = Router();
 

@@ -1,7 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModel } from "ai";
-import { env } from "../config/env.js";
+import { env } from "./env.js";
 
 const ollama = createOpenAICompatible({
   name: "ollama",

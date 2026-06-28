@@ -1,5 +1,5 @@
 import type { Visitor } from "@prisma/client";
-import { prisma } from "../db/prisma.js";
+import { prisma } from "../helpers/prisma.js";
 
 export async function resolveSession(visitor: Visitor, agentKey: string) {
   const existing = await prisma.agentSession.findFirst({

@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { env } from "../config/env.js";
+import { env } from "./env.js";
 
 export function createVisitorToken(): string {
   return crypto.randomBytes(32).toString("base64url");

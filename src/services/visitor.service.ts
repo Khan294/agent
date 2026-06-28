@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
-import { prisma } from "../db/prisma.js";
-import { createVisitorToken, hashVisitorToken } from "./crypto.js";
+import { createVisitorToken, hashVisitorToken } from "../helpers/crypto.js";
+import { prisma } from "../helpers/prisma.js";
 
 export const visitorCookieName = "agent_demo_visitor";
 

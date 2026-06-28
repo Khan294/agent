@@ -1,0 +1,95 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, vector]
+}
+
+model Visitor {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  visitorTokenHash String         @unique @map("visitor_token_hash")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  lastSeenAt       DateTime       @default(now()) @updatedAt @map("last_seen_at")
+  sessions         AgentSession[]
+
+  @@map("visitors")
+}
+
+model Agent {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agentKey       String         @unique @map("agent_key")
+  displayName    String         @map("display_name")
+  description    String?
+  status         String         @default("active")
+  systemPrompt   String         @map("system_prompt")
+  modelProvider  String         @map("model_provider")
+  modelName      String         @default("gemma4:e2b-it-qat") @map("model_name")
+  temperature    Decimal        @default(0.2) @db.Decimal(3, 2)
+  maxTokens      Int?           @map("max_tokens")
+  toolsConfig    Json           @map("tools_config")
+  frontendConfig Json           @map("frontend_config")
+  metadata       Json?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  documents      RagDocument[]
+  sessions       AgentSession[]
+
+  @@map("agents")
+}
+
+model RagDocument {
+  id        String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agentKey  String                @map("agent_key")
+  category  String
+  title     String
+  content   String
+  embedding Unsupported("vector")?
+  metadata  Json?
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
+  agent     Agent                 @relation(fields: [agentKey], references: [agentKey], onDelete: Cascade)
+
+  @@index([agentKey])
+  @@index([category])
+  @@map("rag_documents")
+}
+
+model AgentSession {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  visitorId String        @map("visitor_id") @db.Uuid
+  agentKey  String        @map("agent_key")
+  status    String        @default("active")
+  summary   String?
+  state     Json?
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  visitor   Visitor       @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  agent     Agent         @relation(fields: [agentKey], references: [agentKey], onDelete: Cascade)
+  actions   AgentAction[]
+
+  @@index([visitorId, agentKey, status])
+  @@map("agent_sessions")
+}
+
+model AgentAction {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId  String       @map("session_id") @db.Uuid
+  agentKey   String       @map("agent_key")
+  eventType  String       @map("event_type")
+  actionName String?      @map("action_name")
+  input      Json?
+  output     Json?
+  status     String       @default("success")
+  metadata   Json?
+  createdAt  DateTime     @default(now()) @map("created_at")
+  session    AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@index([agentKey, eventType])
+  @@index([actionName])
+  @@map("agent_actions")
+}

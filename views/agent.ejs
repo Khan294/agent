@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= displayName %></title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <style>
+      :root {
+        --primary: <%= frontend.theme.primary %>;
+        --background: <%= frontend.theme.background %>;
+        --surface: <%= frontend.theme.surface %>;
+        --text: <%= frontend.theme.text %>;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--background);
+        color: var(--text);
+      }
+      .shell {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 28px 18px 36px;
+      }
+      header {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 22px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(28px, 5vw, 48px);
+        line-height: 1.05;
+      }
+      p {
+        margin: 0;
+        max-width: 720px;
+        line-height: 1.55;
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        gap: 18px;
+        align-items: start;
+      }
+      .panel,
+      .side {
+        background: var(--surface);
+        border: 1px solid rgba(20, 30, 45, 0.12);
+        border-radius: 8px;
+      }
+      .messages {
+        height: min(62vh, 620px);
+        min-height: 420px;
+        overflow-y: auto;
+        padding: 18px;
+      }
+      .message {
+        max-width: 78%;
+        padding: 12px 14px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+      }
+      .message.user {
+        margin-left: auto;
+        background: var(--primary);
+        color: #fff;
+      }
+      .message.assistant {
+        background: #eef1f5;
+      }
+      form {
+        display: flex;
+        gap: 10px;
+        border-top: 1px solid rgba(20, 30, 45, 0.12);
+        padding: 12px;
+      }
+      input {
+        flex: 1;
+        min-width: 0;
+        border: 1px solid rgba(20, 30, 45, 0.2);
+        border-radius: 6px;
+        padding: 12px;
+        font: inherit;
+      }
+      button {
+        border: 0;
+        border-radius: 6px;
+        background: var(--primary);
+        color: #fff;
+        padding: 0 16px;
+        font: inherit;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+      .side {
+        padding: 14px;
+      }
+      .prompt {
+        width: 100%;
+        margin-top: 10px;
+        padding: 10px;
+        text-align: left;
+        background: #f5f7fb;
+        color: var(--text);
+        border: 1px solid rgba(20, 30, 45, 0.12);
+      }
+      .actions {
+        margin-top: 18px;
+        font-size: 13px;
+      }
+      .action {
+        padding: 8px 0;
+        border-top: 1px solid rgba(20, 30, 45, 0.1);
+      }
+      @media (max-width: 760px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+        .messages {
+          height: 56vh;
+          min-height: 340px;
+        }
+        .message {
+          max-width: 92%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <h1><%= frontend.heading %></h1>
+        <p><%= frontend.subheading %></p>
+      </header>
+      <div id="root"></div>
+    </main>
+    <script>
+      window.AGENT_DEMO = {
+        agentKey: <%- JSON.stringify(agentKey) %>,
+        frontend: <%- JSON.stringify(frontend) %>
+      };
+    </script>
+    <script>
+      const { useState } = React;
+
+      function ChatApp() {
+        const config = window.AGENT_DEMO;
+        const [messages, setMessages] = useState([
+          { role: "assistant", content: "Hi. I am ready to run this demo flow." }
+        ]);
+        const [input, setInput] = useState("");
+        const [actions, setActions] = useState([]);
+        const [loading, setLoading] = useState(false);
+
+        async function sendMessage(text) {
+          const message = text.trim();
+          if (!message || loading) return;
+
+          setInput("");
+          setLoading(true);
+          setMessages((items) => [...items, { role: "user", content: message }]);
+
+          try {
+            const response = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ agentKey: config.agentKey, message })
+            });
+            const body = await response.json();
+
+            if (!response.ok) {
+              throw new Error(body.error || "Request failed");
+            }
+
+            setMessages((items) => [...items, { role: "assistant", content: body.reply }]);
+            setActions((items) => [...body.actions, ...items].slice(0, 8));
+          } catch (error) {
+            setMessages((items) => [...items, { role: "assistant", content: error.message }]);
+          } finally {
+            setLoading(false);
+          }
+        }
+
+        return React.createElement("section", { className: "app" },
+          React.createElement("div", { className: "panel" },
+            React.createElement("div", { className: "messages" },
+              messages.map((message, index) =>
+                React.createElement("div", { key: index, className: `message ${message.role}` }, message.content)
+              )
+            ),
+            React.createElement("form", {
+              onSubmit: (event) => {
+                event.preventDefault();
+                sendMessage(input);
+              }
+            },
+              React.createElement("input", {
+                value: input,
+                onChange: (event) => setInput(event.target.value),
+                placeholder: config.frontend.placeholder,
+                disabled: loading
+              }),
+              React.createElement("button", { type: "submit", disabled: loading }, loading ? "Sending" : "Send")
+            )
+          ),
+          React.createElement("aside", { className: "side" },
+            React.createElement("strong", null, "Starter prompts"),
+            config.frontend.starterPrompts.map((prompt) =>
+              React.createElement("button", { key: prompt, className: "prompt", onClick: () => sendMessage(prompt), disabled: loading }, prompt)
+            ),
+            React.createElement("div", { className: "actions" },
+              React.createElement("strong", null, "Recent actions"),
+              actions.length === 0
+                ? React.createElement("div", { className: "action" }, "No tool actions yet.")
+                : actions.map((action, index) =>
+                    React.createElement("div", { className: "action", key: index }, `${action.name}: ${action.status}`)
+                  )
+            )
+          )
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(ChatApp));
+    </script>
+  </body>
+</html>
